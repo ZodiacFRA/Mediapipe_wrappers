@@ -5,6 +5,7 @@ import cv2
 
 from MidiHandler import MidiHandler
 from MediapipeWrapper import MediapipeWrapper
+import musical_utils
 
 
 class App(object):
@@ -18,29 +19,28 @@ class App(object):
         s.midi_handler = MidiHandler()
         # Video Analysis
         s.m_wrapper = MediapipeWrapper()
+        # Musical
+        s.scale = musical_utils.get_minor_scale()
 
     def run(s):
         while s.v_in.isOpened():
             frame = s.get_processed_frame()
             # Now process each wanted part
             # Reset the image as writable to display the results
-            detection_data = s.m_wrapper.process(frame, detection_flags=['hands'])
+            detection_data = s.m_wrapper.process(frame, detection_flags=['hands'], draw=True)
+            s.transform_data_to_music(detection_data)
 
-            # Now reverse the frame transformations
-            frame.flags.writeable = True
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            # Draw the annotations on the image.
-            frame = s.m_wrapper.draw(frame, detection_data)
-            # cv2.imshow('VideoMidi', frame)
-            cv2.imshow('VideoMidi', frame)
-
-            # s.midi_handler.send(random.randint(30, 110), 100)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
             s.handle_sleep()
 
         s.midi_handler.close_midi()
         s.v_in.release()
+
+    def transform_data_to_music(s, detection_data):
+        s.midi_handler.send(60 + random.choice(s.scale), 100, delta=0)
+        s.midi_handler.send(60 + random.choice(s.scale), 100, delta=100, stop_previous=False)
+        s.midi_handler.send(60 + random.choice(s.scale), 100, delta=200, stop_previous=False)
 
     def get_processed_frame(s):
         """ Get the frame, convert to RGB, mark as non writable for performance"""
@@ -49,10 +49,6 @@ class App(object):
             return
         # Flip the image horizontally for a later selfie-view display
         frame = cv2.flip(frame, 1)
-        # Convert the BGR image to RGB.
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        # To improve performance, mark the image as not writeable (pass by reference)
-        frame.flags.writeable = False
         return frame
 
     def handle_sleep(s):
@@ -66,7 +62,7 @@ class App(object):
 
 
 if __name__ == '__main__':
-    app = App(fps=30)
+    app = App(fps=1)
     app.run()
     # ret, frame = app.cam.read()
     # cv2.imwrite('./images/hh.png', frame)

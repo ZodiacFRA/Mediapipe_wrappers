@@ -26,7 +26,13 @@ class MediapipeWrapper(object):
                             min_tracking_confidence=0.5
                         )
 
-    def process(s, frame, detection_flags):
+    def process(s, frame, detection_flags, draw=True):
+        ### Prepare frame for detection
+        # Convert the BGR image to RGB.
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # To improve performance, mark the image as not writeable (pass by reference)
+        frame.flags.writeable = False
+
         res = {}
         if 'hands' in detection_flags:
             res['hands'] = s.get_hands_data(frame)
@@ -34,6 +40,15 @@ class MediapipeWrapper(object):
             res['face'] = s.get_face_data(frame)
         if 'pose' in detection_flags:
             res['pose'] = s.get_pose_data(frame)
+
+        if draw:
+            # Reverse the frame transformations
+            frame.flags.writeable = True
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            # Draw the annotations on the image.
+            frame = s.draw(frame, res)
+            # Show annotated image
+            cv2.imshow('VideoMidi', frame)
         return res
 
     def draw(s, frame, detection_data):
