@@ -47,9 +47,7 @@ class MediapipeWrapper(object):
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             # Draw the annotations on the image.
             frame = s.draw(frame, res)
-            # Show annotated image
-            cv2.imshow('VideoMidi', frame)
-        return res
+        return frame, res
 
     def draw(s, frame, detection_data):
         if not detection_data:

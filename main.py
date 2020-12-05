@@ -9,10 +9,13 @@ import musical_utils
 
 
 class App(object):
-    def __init__(s, fps):
+    def __init__(s, fps, tempo):
         # FPS Handling
-        s.delta = 1 / fps
-        s.frame_start_time = time.time()
+        s.frame_delta = 1 / fps
+        s.last_fps_eval_time = time.time()
+        # Tempo Handling
+        s.tempo_delta = 60 / tempo
+        s.last_tempo_eval_time = time.time()
         # CV2
         s.v_in = cv2.VideoCapture(0)
         # Midi
@@ -25,14 +28,16 @@ class App(object):
     def run(s):
         while s.v_in.isOpened():
             frame = s.get_processed_frame()
-            # Now process each wanted part
-            # Reset the image as writable to display the results
-            detection_data = s.m_wrapper.process(frame, detection_flags=['hands'], draw=True)
-            s.transform_data_to_music(detection_data)
-
             if cv2.waitKey(5) & 0xFF == 27:
                 break
-            s.handle_sleep()
+            if s.handle_tempo():
+                # Now process each wanted part
+                frame, detection_data = s.m_wrapper.process(frame, detection_flags=['hands'], draw=True)
+                s.transform_data_to_music(detection_data)
+            # Show annotated image
+            cv2.imshow('VideoMidi', frame)
+
+            s.handle_framerate()
 
         s.midi_handler.close_midi()
         s.v_in.release()
@@ -51,18 +56,26 @@ class App(object):
         frame = cv2.flip(frame, 1)
         return frame
 
-    def handle_sleep(s):
+    def handle_framerate(s):
         """Maintains the framerate"""
-        to_sleep = s.delta - (time.time() - s.frame_start_time)
+        to_sleep = s.frame_delta - (time.time() - s.last_fps_eval_time)
         if to_sleep > 0:
             time.sleep(to_sleep)
         elif (to_sleep < -0.1):
             print(f"[-] - Lagging {-to_sleep:.2f} seconds behind")
-        s.frame_start_time = time.time()
+        s.last_fps_eval_time = time.time()
+
+    def handle_tempo(s):
+        """Maintains the tempo, return True if next beat is reached"""
+        to_wait = s.tempo_delta - (time.time() - s.last_tempo_eval_time)
+        if to_wait > 0:
+            return False
+        s.last_tempo_eval_time = time.time()
+        return True
 
 
 if __name__ == '__main__':
-    app = App(fps=1)
+    app = App(fps=30, tempo=100)
     app.run()
     # ret, frame = app.cam.read()
     # cv2.imwrite('./images/hh.png', frame)
