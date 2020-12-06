@@ -14,32 +14,29 @@ class MidiHandler(object):
         except pygame.midi.MidiException:
             print('[-] - Cound not connect to midi device')
             s.initialized = False
-        s.previous_note = None
+        s.playing_keys = []
 
     def close_midi(s):
         if not s.initialized:
             return
-        for note in range(0, 127):
-            s.output.write_short(0x80, note, 0)
+        for key in range(0, 127):
+            s.output.write_short(0x80, key, 127)
         s.output.close()
+        pygame.midi.quit()
 
-    def send(s, note, velo, delta=0, stop_previous=True):
+    def send(s, key, velo, delta=0, stop_previous=True):
+        """ Ox90 = key on, Ox80 = key off, timestamp: 1000 = 1sec"""
         if not s.initialized:
+            print('[-] - Cound not connect to midi device')
             return
-        # Ox90 = note on, Ox80 = note off
+        if stop_previous and s.playing_keys:
+            for tmp in s.playing_keys:
+                s.output.write_short(0x80, tmp, 127)
+            s.playing_keys.clear()
 
-        # s.output.write_short(0x90, note, velo)
-
-        # 1000 = 1sec
         midi_time = pygame.midi.time()
-
-        if s.previous_note:
-            s.output.write([[[0x80, s.previous_note, velo], midi_time]])
-        s.previous_note = note
-
-        s.output.write([[[0x90, note, velo], midi_time + delta]])
-
-
+        s.playing_keys.append(key)
+        s.output.write([[[0x90, key, velo], midi_time + delta]])
 
 
 if __name__ == '__main__':
